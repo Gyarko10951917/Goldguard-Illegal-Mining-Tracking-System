@@ -1,0 +1,47 @@
+@import "tailwindcss";
+
+:root {
+  --background: #ffffff;
+  --foreground: #171717;
+}
+
+
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --background: #0a0a0a;
+    --foreground: #ededed;
+  }
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: 'Inter', Arial, Helvetica, sans-serif;
+  font-size: 16px;
+  line-height: 1.6;
+}
+
+/* Headings */
+h1, .heading-1 {
+  font-size: 2.25rem;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+h2, .heading-2 {
+  font-size: 1.5rem;
+  font-weight: 600;
+}
+h3, .heading-3 {
+  font-size: 1.25rem;
+  font-weight: 600;
+}
+
+/* Utility classes for consistent UI (use these Tailwind classes in components):
+  Button: rounded-full px-6 py-2 font-semibold shadow-md transition bg-yellow-400 text-black hover:bg-yellow-500 focus:outline-none focus:ring-2 focus:ring-yellow-400
+  Button (secondary): bg-gray-800 text-white hover:bg-gray-700
+  Button (outline): border border-gray-400 bg-white text-gray-800 hover:bg-gray-100
+  Input: bg-gray-50 border border-gray-300 rounded-lg px-4 py-2 text-gray-800 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-yellow-400
+  Icon button: flex items-center justify-center rounded-full p-2 transition bg-gray-100 hover:bg-yellow-200 focus:outline-none focus:ring-2 focus:ring-yellow-400
+  For taupe/dark themes, override with inline styles or conditional classes in components.
+*/

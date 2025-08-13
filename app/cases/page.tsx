@@ -260,17 +260,8 @@ const CasePage: React.FC = () => {
           .map((officer: Officer) => officer.name);
         setOfficers(activeOfficers);
       } else {
-        // Fallback to default officers if none in localStorage
-        setOfficers([
-          'Officer John Mensah',
-          'Officer Sarah Asante', 
-          'Officer Michael Boateng',
-          'Officer Grace Owusu',
-          'Officer Daniel Appiah',
-          'Officer Emma Adjei',
-          'Officer Kwame Osei',
-          'Officer Akosua Adom'
-        ]);
+        // If no officers in management system, show empty list with fallback option
+        setOfficers(['Unassigned']);
       }
     };
 
@@ -614,7 +605,8 @@ Contact: info@goldguard.gov.gh
 
   return (
     <AdminProtection>
-      <div className={`min-h-screen ${theme === "dark" ? "bg-gray-900 text-white" : theme === "taupe" ? "bg-[#f5f3ef] text-gray-800" : "bg-white text-gray-800"} flex flex-col`}>
+      {/* Main Component Content */}
+      {<div className={`min-h-screen ${theme === "dark" ? "bg-gray-900 text-white" : theme === "taupe" ? "bg-[#f5f3ef] text-gray-800" : "bg-white text-gray-800"} flex flex-col`}>
       <AdminNavBar adminInitials={currentAdmin.initials} />
       <div className="flex pt-16">
         {/* Sidebar */}
@@ -664,7 +656,7 @@ Contact: info@goldguard.gov.gh
           </nav>
         </div>
         {/* Main Content */}
-        <div className="flex-1 p-8 space-y-8 bg-[#f5f3ed]">
+        <div className="flex-1 p-8 space-y-8 bg-[#f5f3ed] relative">
           <div className="flex items-center justify-between">
             <div>
               <h2 className="text-3xl font-bold text-[#2a260f]">Case Management</h2>
@@ -807,8 +799,8 @@ Contact: info@goldguard.gov.gh
           </div>
           {/* Case Detail Modal */}
           {selectedCase && (
-            <div className="absolute inset-0 flex bg-opacity-50 items-center justify-center pt-150">
-              <div className="bg-white rounded-lg shadow-xl p-6 max-w-3xl w-full mx-4 ml-68 max-h-[90vh] overflow-y-auto pointer-events-auto">
+            <div className="absolute inset-0 flex bg-opacity-50 items-center justify-center pt-25">
+              <div className="bg-white rounded-lg shadow-xl p-3 max-w-3xl w-full mx-4 ml-10 max-h-[80vh] overflow-y-auto pointer-events-auto">
                 <div className="flex items-center justify-between mb-6">
                   <h3 className="text-2xl font-semibold text-[#2a260f]">Case Details</h3>
                   <button
@@ -882,37 +874,37 @@ Contact: info@goldguard.gov.gh
                 </div>
                 
                 {/* Evidence Images Section */}
-                {selectedCase.evidence && selectedCase.evidence.length > 0 && (
-                  <div className="mt-6 pt-6 border-t border-gray-200">
-                    <label className="block text-sm font-medium text-[#6b5e36] mb-4">Evidence Images ({selectedCase.evidence.length})</label>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
-                      {selectedCase.evidence.map((evidence, index) => (
-                        <div key={index} className="bg-gray-50 rounded-lg p-4">
-                          <div className="aspect-w-16 aspect-h-12 mb-3">
-                            {evidence.fileUrl ? (
-                              <div className="w-full h-32 bg-gray-200 rounded-lg flex items-center justify-center">
-                                <ImageIcon className="w-8 h-8 text-gray-400" />
-                                <span className="ml-2 text-sm text-gray-600">Image: {evidence.fileName}</span>
-                              </div>
-                            ) : (
-                              <div className="w-full h-32 bg-gray-200 rounded-lg flex items-center justify-center">
-                                <ImageIcon className="w-8 h-8 text-gray-400" />
-                                <span className="ml-2 text-sm text-gray-600">{evidence.fileName}</span>
-                              </div>
-                            )}
-                          </div>
-                          <div className="space-y-1 text-xs text-gray-600">
-                            <p><span className="font-medium">File:</span> {evidence.fileName}</p>
-                            <p><span className="font-medium">Type:</span> {evidence.type}</p>
-                            {evidence.description && (
-                              <p><span className="font-medium">Description:</span> {evidence.description}</p>
-                            )}
-                          </div>
+              {selectedCase.evidence && selectedCase.evidence.length > 0 && (
+                <div className="mt-6 pt-6 border-t border-gray-200">
+                  <label className="block text-sm font-medium text-[#6b5e36] mb-4">Evidence Images ({selectedCase.evidence.length})</label>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+                    {selectedCase.evidence.map((evidence, index) => (
+                      <div key={index} className="bg-gray-50 rounded-lg p-4">
+                        <div className="aspect-w-16 aspect-h-12 mb-3">
+                          {evidence.fileUrl ? (
+                            <div className="w-full h-32 bg-gray-200 rounded-lg flex items-center justify-center">
+                              <ImageIcon className="w-8 h-8 text-gray-400" />
+                              <span className="ml-2 text-sm text-gray-600">Image: {evidence.fileName}</span>
+                            </div>
+                          ) : (
+                            <div className="w-full h-32 bg-gray-200 rounded-lg flex items-center justify-center">
+                              <ImageIcon className="w-8 h-8 text-gray-400" />
+                              <span className="ml-2 text-sm text-gray-600">{evidence.fileName}</span>
+                            </div>
+                          )}
                         </div>
-                      ))}
-                    </div>
+                        <div className="space-y-1 text-xs text-gray-600">
+                          <p><span className="font-medium">File:</span> {evidence.fileName}</p>
+                          <p><span className="font-medium">Type:</span> {evidence.type}</p>
+                          {evidence.description && (
+                            <p><span className="font-medium">Description:</span> {evidence.description}</p>
+                          )}
+                        </div>
+                      </div>
+                    ))}
                   </div>
-                )}
+                </div>
+              )}
                 
                 {/* Download Message */}
                 {downloadMessage && (
@@ -952,12 +944,8 @@ Contact: info@goldguard.gov.gh
           )}
           {/* Edit Case Modal */}
           {editingCase && (
-            <div className="absolute inset-0 flex bg-opacity-50 items-center justify-center pt-150">
-              <div 
-                className="bg-white rounded-lg shadow-xl p-6 max-w-3xl w-full mx-4 ml-68 max-h-[90vh] overflow-y-auto pointer-events-auto"
-                onKeyDown={handleKeyPress}
-                tabIndex={-1}
-              >
+            <div className="absolute inset-0 flex bg-opacity-50 items-center justify-center pt-25">
+              <div className="bg-white rounded-lg shadow-xl p-6 max-w-3xl w-full mx-4 ml-10 max-h-[80vh] overflow-y-auto pointer-events-auto">
                 <div className="flex items-center justify-between mb-6">
                   <h3 className="text-2xl font-semibold text-[#2a260f]">Edit Case</h3>
                   <button
@@ -1105,7 +1093,7 @@ Contact: info@goldguard.gov.gh
         </div>
       </div>
       <Footer />
-    </div>
+    </div>}
     </AdminProtection>
   );
 };

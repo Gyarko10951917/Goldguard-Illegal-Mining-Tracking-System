@@ -1,5 +1,5 @@
 "use client";
-import { AlertTriangle, Briefcase, Calendar, Download, Edit, Eye, LayoutDashboard, LogOut, MapPin, Search, Settings, Trash2, Users } from 'lucide-react';
+import { AlertTriangle, Briefcase, Calendar, Download, Edit, Eye, Image as ImageIcon, LayoutDashboard, LogOut, MapPin, Search, Settings, Trash2, Users } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import React, { useState } from 'react';
@@ -35,6 +35,12 @@ interface Case {
     email?: string;
     anonymous: boolean;
   } | string;
+  evidence?: Array<{
+    type: string;
+    description: string;
+    fileUrl: string;
+    fileName: string;
+  }>;
 }
 
 interface BackendCase {
@@ -60,6 +66,12 @@ interface BackendCase {
     isAnonymous: boolean;
     fullName?: string;
   };
+  evidence?: Array<{
+    type: string;
+    description: string;
+    fileUrl: string;
+    fileName: string;
+  }>;
 }
 
 interface Officer {
@@ -190,7 +202,8 @@ const CasePage: React.FC = () => {
               description: backendCase.description,
               location: backendCase.location?.address || `${backendCase.region}, Ghana`,
               reporter: backendCase.reporter?.isAnonymous ? 'Anonymous' : 
-                (backendCase.reporter?.fullName || 'Unknown')
+                (backendCase.reporter?.fullName || 'Unknown'),
+              evidence: backendCase.evidence || []
             }));
 
             // Load localStorage reports as well
@@ -207,7 +220,8 @@ const CasePage: React.FC = () => {
               lastUpdated: new Date(report.submittedAt || Date.now()).toLocaleDateString(),
               description: report.description,
               location: report.affectedArea || report.location?.address,
-              reporter: report.isAnonymous ? 'Anonymous' : report.fullName || 'Unknown'
+              reporter: report.isAnonymous ? 'Anonymous' : report.fullName || 'Unknown',
+              evidence: report.evidence || []
             }));
 
             // Combine only backend cases with localStorage reports (no mock data)
@@ -739,6 +753,12 @@ Contact: info@goldguard.gov.gh
                     <AlertTriangle className="w-4 h-4 mr-2" />
                     {caseItem.type}
                   </div>
+                  {caseItem.evidence && caseItem.evidence.length > 0 && (
+                    <div className="flex items-center text-sm text-green-600">
+                      <ImageIcon className="w-4 h-4 mr-2" />
+                      {caseItem.evidence.length} evidence image{caseItem.evidence.length !== 1 ? 's' : ''}
+                    </div>
+                  )}
                 </div>
                 <div className="flex items-center justify-between mb-4">
                   <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getStatusColor(caseItem.status)}`}>
@@ -860,6 +880,39 @@ Contact: info@goldguard.gov.gh
                     </div>
                   </div>
                 </div>
+                
+                {/* Evidence Images Section */}
+                {selectedCase.evidence && selectedCase.evidence.length > 0 && (
+                  <div className="mt-6 pt-6 border-t border-gray-200">
+                    <label className="block text-sm font-medium text-[#6b5e36] mb-4">Evidence Images ({selectedCase.evidence.length})</label>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+                      {selectedCase.evidence.map((evidence, index) => (
+                        <div key={index} className="bg-gray-50 rounded-lg p-4">
+                          <div className="aspect-w-16 aspect-h-12 mb-3">
+                            {evidence.fileUrl ? (
+                              <div className="w-full h-32 bg-gray-200 rounded-lg flex items-center justify-center">
+                                <ImageIcon className="w-8 h-8 text-gray-400" />
+                                <span className="ml-2 text-sm text-gray-600">Image: {evidence.fileName}</span>
+                              </div>
+                            ) : (
+                              <div className="w-full h-32 bg-gray-200 rounded-lg flex items-center justify-center">
+                                <ImageIcon className="w-8 h-8 text-gray-400" />
+                                <span className="ml-2 text-sm text-gray-600">{evidence.fileName}</span>
+                              </div>
+                            )}
+                          </div>
+                          <div className="space-y-1 text-xs text-gray-600">
+                            <p><span className="font-medium">File:</span> {evidence.fileName}</p>
+                            <p><span className="font-medium">Type:</span> {evidence.type}</p>
+                            {evidence.description && (
+                              <p><span className="font-medium">Description:</span> {evidence.description}</p>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
                 
                 {/* Download Message */}
                 {downloadMessage && (

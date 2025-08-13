@@ -918,6 +918,28 @@ For questions or additional analysis, contact the system administrator.
                       {caseItem.description}
                     </p>
                     
+                    {/* Image Preview */}
+                    {caseItem.images && caseItem.images.length > 0 && (
+                      <div className="mb-4">
+                        <p className="text-xs text-gray-500 mb-2">Evidence Images:</p>
+                        <div className="flex space-x-2 overflow-x-auto">
+                          {caseItem.metadata?.slice(0, 3).map((metadata, index) => (
+                            <div key={index} className="flex-shrink-0">
+                              <div className="w-16 h-16 bg-gray-200 rounded border flex items-center justify-center">
+                                <ImageIcon className="w-6 h-6 text-gray-400" />
+                              </div>
+                              <p className="text-xs text-gray-500 mt-1 text-center truncate w-16">{metadata.fileName}</p>
+                            </div>
+                          ))}
+                          {caseItem.images.length > 3 && (
+                            <div className="flex-shrink-0 w-16 h-16 bg-gray-100 rounded border flex items-center justify-center">
+                              <span className="text-xs text-gray-600">+{caseItem.images.length - 3}</span>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    )}
+                    
                     <div className="flex items-center justify-between">
                       <div className="flex items-center space-x-2">
                         <button
@@ -1012,6 +1034,44 @@ For questions or additional analysis, contact the system administrator.
                     </div>
                   </div>
                 </div>
+                
+                {/* Images Section */}
+                {selectedCase.images && selectedCase.images.length > 0 && (
+                  <div className="mt-6 pt-6 border-t border-gray-200">
+                    <label className="block text-sm font-medium text-[#6b5e36] mb-4">Evidence Images ({selectedCase.images.length})</label>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+                      {selectedCase.metadata?.map((metadata, index) => (
+                        <div key={index} className="bg-gray-50 rounded-lg p-4">
+                          <div className="aspect-w-16 aspect-h-12 mb-3">
+                            {metadata.fileUrl ? (
+                              <div className="w-full h-32 bg-gray-200 rounded-lg flex items-center justify-center">
+                                <ImageIcon className="w-8 h-8 text-gray-400" />
+                                <span className="ml-2 text-sm text-gray-600">Image: {metadata.fileName}</span>
+                              </div>
+                            ) : (
+                              <div className="w-full h-32 bg-gray-200 rounded-lg flex items-center justify-center">
+                                <ImageIcon className="w-8 h-8 text-gray-400" />
+                                <span className="ml-2 text-sm text-gray-600">{metadata.fileName}</span>
+                              </div>
+                            )}
+                          </div>
+                          <div className="space-y-1 text-xs text-gray-600">
+                            <p><span className="font-medium">File:</span> {metadata.fileName}</p>
+                            {metadata.location && (
+                              <>
+                                <p><span className="font-medium">GPS:</span> {metadata.location.latitude.toFixed(6)}, {metadata.location.longitude.toFixed(6)}</p>
+                              </>
+                            )}
+                            {metadata.camera && (
+                              <p><span className="font-medium">Camera:</span> {metadata.camera.make} {metadata.camera.model}</p>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                
                 <div className="flex space-x-3 mt-6 pt-6 border-t border-gray-200">
                   <button className="bg-amber-600 hover:bg-amber-700 text-white px-4 py-2 rounded-lg transition-colors" title="Analyze Images" aria-label="Analyze Images">
                     Analyze Images

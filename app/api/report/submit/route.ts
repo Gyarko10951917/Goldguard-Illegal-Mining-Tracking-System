@@ -31,9 +31,17 @@ interface Case {
 }
 
 function generateCaseId(): string {
-  const timestamp = Date.now().toString(36);
-  const randomStr = Math.random().toString(36).substr(2, 5);
-  return `CASE-${timestamp}-${randomStr}`.toUpperCase();
+  // Generate unique case ID based on timestamp to avoid duplicates
+  // Format: CASE-YYYY-XXXXXX (where XXXXXX is based on timestamp)
+  const now = new Date();
+  const year = now.getFullYear();
+  
+  // Create a unique identifier using timestamp and random component
+  const timestamp = now.getTime();
+  const randomComponent = Math.floor(Math.random() * 1000);
+  const uniqueId = (timestamp % 1000000) + randomComponent;
+  
+  return `CASE-${year}-${uniqueId.toString().padStart(6, '0')}`;
 }
 
 function determinePriority(subject: string, message: string): Case['priority'] {

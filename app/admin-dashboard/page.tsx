@@ -177,7 +177,16 @@ export default function AdminDashboard() {
         location: report.affectedArea || report.location?.address || report.region
       }));
       
-      setReports(localReports);
+      // Remove duplicates based on id
+      const uniqueReports = localReports.reduce((acc: Report[], current: Report) => {
+        const existingReport = acc.find(r => r.id === current.id);
+        if (!existingReport) {
+          acc.push(current);
+        }
+        return acc;
+      }, []);
+      
+      setReports(uniqueReports);
     } catch (error) {
       console.error('Error loading localStorage reports:', error);
       // Set empty array if localStorage fails
@@ -309,9 +318,19 @@ export default function AdminDashboard() {
           createdAt: report.submittedAt || new Date().toISOString()
         }));
 
-        // Combine backend and local data
+        // Combine backend and local data, removing duplicates based on caseId
         allCases = [...allCases, ...localCases];
-        setCasesData(allCases);
+        
+        // Remove duplicates by caseId (backend data takes precedence)
+        const uniqueCases = allCases.reduce((acc: any[], current: any) => {
+          const existingCase = acc.find(c => c.caseId === current.caseId);
+          if (!existingCase) {
+            acc.push(current);
+          }
+          return acc;
+        }, []);
+        
+        setCasesData(uniqueCases);
 
       } catch (error) {
         console.error('Error loading cases data:', error);

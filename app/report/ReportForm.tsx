@@ -171,7 +171,7 @@ const ReportForm: React.FC = () => {
       try {
         const savedReports = JSON.parse(localStorage.getItem('goldguard_reports') || '[]');
         const newReport = {
-          id: generateCaseId(),
+          id: caseId, // Use the same caseId from state instead of generating a new one
           ...reportData,
           submittedAt: new Date().toISOString(),
           status: 'pending_backend_sync'
@@ -209,15 +209,29 @@ const ReportForm: React.FC = () => {
   };
 
   const generateCaseId = () => {
-    // Get the next sequential case number (in a real app, this would come from a database)
-    // For now, we'll simulate the next case number based on current statistics
-    // Total cases currently: 5 (matching the cases in cases/page.tsx: CASE-2024-374 to CASE-2024-378)
-    // This should be synchronized with the database in production
-    // Format: CASE-YYYY-NNN (where NNN is zero-padded sequential number)
-    const currentCaseCount = 5;
-    const nextCaseNumber = currentCaseCount + 1;
-    const year = new Date().getFullYear();
-    return `CASE-${year}-${nextCaseNumber.toString().padStart(3, '0')}`;
+    // Generate unique case ID based on timestamp to avoid duplicates
+    // Format: CASE-YYYY-XXXXXX (where XXXXXX is based on timestamp)
+    const now = new Date();
+    const year = now.getFullYear();
+    
+    // Get existing reports from localStorage to ensure uniqueness
+    const existingReports = JSON.parse(localStorage.getItem('goldguard_reports') || '[]');
+    
+    // Create a unique identifier using timestamp and random component
+    const timestamp = now.getTime();
+    const randomComponent = Math.floor(Math.random() * 1000);
+    const uniqueId = (timestamp % 1000000) + randomComponent;
+    
+    let caseId = `CASE-${year}-${uniqueId.toString().padStart(6, '0')}`;
+    
+    // Ensure uniqueness by checking against existing reports
+    while (existingReports.some((report: any) => report.id === caseId)) {
+      const newRandomComponent = Math.floor(Math.random() * 1000);
+      const newUniqueId = (timestamp % 1000000) + newRandomComponent;
+      caseId = `CASE-${year}-${newUniqueId.toString().padStart(6, '0')}`;
+    }
+    
+    return caseId;
   };
 
   const getCurrentDateTime = () => {

@@ -70,6 +70,10 @@ export default function AdminDashboard() {
     severity: 'Low' | 'Medium' | 'High' | 'Critical';
     reporter: string;
     location: string;
+    coordinates?: {
+      latitude: number;
+      longitude: number;
+    } | null;
   }
 
   // Add missing state for selectedReport AFTER interface definition
@@ -97,15 +101,26 @@ export default function AdminDashboard() {
   // Dynamic reports data state
   const [reports, setReports] = useState<Report[]>([]);
 
-  // Map cases will be derived from real reports data
-  const mapCases = reports.map(report => ({
-    id: report.id,
-    region: report.region,
-    type: report.type,
-    status: report.status,
-    lat: 5.60 + (Math.random() - 0.5) * 3, // Default Ghana coordinates with some variation
-    lng: -0.20 + (Math.random() - 0.5) * 3
-  }));
+  // Map cases will be derived from real reports data with actual coordinates
+  const mapCases = reports.map(report => {
+    // Use actual coordinates if available, otherwise use default Ghana coordinates
+    let lat = 5.60 + (Math.random() - 0.5) * 3; // Default Ghana coordinates with some variation
+    let lng = -0.20 + (Math.random() - 0.5) * 3;
+    
+    if (report.coordinates && report.coordinates.latitude && report.coordinates.longitude) {
+      lat = report.coordinates.latitude;
+      lng = report.coordinates.longitude;
+    }
+    
+    return {
+      id: report.id,
+      region: report.region,
+      type: report.type,
+      status: report.status,
+      lat,
+      lng
+    };
+  });
 
   // Load reports from cases data
   useEffect(() => {
@@ -174,7 +189,12 @@ export default function AdminDashboard() {
         date: new Date(report.submittedAt || Date.now()).toLocaleDateString(),
         severity: 'Medium',
         reporter: report.isAnonymous ? 'Anonymous' : report.fullName || 'Unknown',
-        location: report.affectedArea || report.location?.address || report.region
+        location: report.affectedArea || report.location?.address || report.region,
+        // Preserve coordinates for map display
+        coordinates: report.location && typeof report.location === 'object' ? {
+          latitude: report.location.latitude,
+          longitude: report.location.longitude
+        } : null
       }));
       
       // Remove duplicates based on id

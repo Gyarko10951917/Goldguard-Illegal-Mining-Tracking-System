@@ -45,6 +45,9 @@ const ReportForm: React.FC = () => {
   const [isMultiple, setIsMultiple] = useState(true);
   const [selectedTab, setSelectedTab] = useState<"Images" | "Video" | "Audio" | "Documents">("Images");
   const [imagePreviews, setImagePreviews] = useState<string[]>([]);
+  const [videoFiles, setVideoFiles] = useState<{name: string, data: string, type: string}[]>([]);
+  const [audioFiles, setAudioFiles] = useState<{name: string, data: string, type: string}[]>([]);
+  const [documentFiles, setDocumentFiles] = useState<{name: string, data: string, type: string}[]>([]);
   const [reporterName, setReporterName] = useState("");
   const [reporterContact, setReporterContact] = useState("");
   const [incidentDate, setIncidentDate] = useState("");
@@ -117,12 +120,39 @@ const ReportForm: React.FC = () => {
       type: selectedReportTypes[0], // Use first selected type
       description: details,
       affectedArea: `${selectedRegion} region - ${details.substring(0, 100)}...`,
-      evidence: imagePreviews.map((url, index) => ({
-        type: 'Photo',
-        description: `Evidence photo ${index + 1}`,
-        fileUrl: url,
-        fileName: `evidence_${index + 1}.jpg`
-      }))
+      evidence: [
+        // Images
+        ...imagePreviews.map((url, index) => ({
+          type: 'Photo',
+          description: `Evidence photo ${index + 1}`,
+          fileUrl: url,
+          fileName: `evidence_image_${index + 1}.jpg`
+        })),
+        // Videos
+        ...videoFiles.map((file, index) => ({
+          type: 'Video',
+          description: `Evidence video ${index + 1}`,
+          fileUrl: file.data,
+          fileName: file.name,
+          fileType: file.type
+        })),
+        // Audio
+        ...audioFiles.map((file, index) => ({
+          type: 'Audio',
+          description: `Evidence audio ${index + 1}`,
+          fileUrl: file.data,
+          fileName: file.name,
+          fileType: file.type
+        })),
+        // Documents
+        ...documentFiles.map((file, index) => ({
+          type: 'Document',
+          description: `Evidence document ${index + 1}`,
+          fileUrl: file.data,
+          fileName: file.name,
+          fileType: file.type
+        }))
+      ]
     };
 
     try {
@@ -181,6 +211,11 @@ const ReportForm: React.FC = () => {
         
         console.log('Report saved to localStorage:', newReport);
         setShowSuccessMessage(true);
+        
+        // Immediately generate a new case ID for the next report
+        setCaseId(generateCaseId());
+        setCurrentDateTime(getCurrentDateTime());
+        
         alert('Report submitted successfully! (Note: Backend server is currently unavailable, your report is saved locally and will be synced when the server is back online)');
         
         // Reset form after 3 seconds
@@ -197,9 +232,16 @@ const ReportForm: React.FC = () => {
           setSeverity("");
           setWitnessCount("");
           setImagePreviews([]);
+          setVideoFiles([]);
+          setAudioFiles([]);
+          setDocumentFiles([]);
           setMapPosition([7.9465, -1.0232]);
           setLatitude("");
           setLongitude("");
+          
+          // Generate a new case ID for the next report
+          setCaseId(generateCaseId());
+          setCurrentDateTime(getCurrentDateTime());
         }, 3000);
       } catch (storageError) {
         console.error('Failed to save to localStorage:', storageError);
@@ -225,7 +267,7 @@ const ReportForm: React.FC = () => {
     let caseId = `CASE-${year}-${uniqueId.toString().padStart(6, '0')}`;
     
     // Ensure uniqueness by checking against existing reports
-    while (existingReports.some((report: any) => report.id === caseId)) {
+    while (existingReports.some((report: { id: string }) => report.id === caseId)) {
       const newRandomComponent = Math.floor(Math.random() * 1000);
       const newUniqueId = (timestamp % 1000000) + newRandomComponent;
       caseId = `CASE-${year}-${newUniqueId.toString().padStart(6, '0')}`;
@@ -521,50 +563,77 @@ const ReportForm: React.FC = () => {
                   className="hidden"
                   id={`${selectedTab.toLowerCase()}-upload`}
                   onChange={async (event: React.ChangeEvent<HTMLInputElement>) => {
-                    if (selectedTab === "Images" && event?.target?.files) {
-                      // Only run on client
-                      if (typeof window !== "undefined" && typeof document !== "undefined") {
-                        const files = Array.from(event.target.files);
-                        const compressedPromises = files.map(file => {
-                          return new Promise<string>((resolve, reject) => {
-                            const reader = new FileReader();
-                            reader.onload = () => {
-                              const img = new window.Image();
-                              img.onload = () => {
-                                const canvas = document.createElement('canvas');
-                                const maxDim = 800;
-                                let width = img.width;
-                                let height = img.height;
-                                if (width > maxDim || height > maxDim) {
-                                  if (width > height) {
-                                    height = Math.round(height * (maxDim / width));
-                                    width = maxDim;
-                                  } else {
-                                    width = Math.round(width * (maxDim / height));
-                                    height = maxDim;
+                    if (event?.target?.files) {
+                      const files = Array.from(event.target.files);
+                      
+                      if (selectedTab === "Images") {
+                        // Only run on client
+                        if (typeof window !== "undefined" && typeof document !== "undefined") {
+                          const compressedPromises = files.map(file => {
+                            return new Promise<string>((resolve, reject) => {
+                              const reader = new FileReader();
+                              reader.onload = () => {
+                                const img = new window.Image();
+                                img.onload = () => {
+                                  const canvas = document.createElement('canvas');
+                                  const maxDim = 800;
+                                  let width = img.width;
+                                  let height = img.height;
+                                  if (width > maxDim || height > maxDim) {
+                                    if (width > height) {
+                                      height = Math.round(height * (maxDim / width));
+                                      width = maxDim;
+                                    } else {
+                                      width = Math.round(width * (maxDim / height));
+                                      height = maxDim;
+                                    }
                                   }
-                                }
-                                canvas.width = width;
-                                canvas.height = height;
-                                const ctx = canvas.getContext('2d');
-                                ctx?.drawImage(img, 0, 0, width, height);
-                                // Compress to JPEG, quality 0.6
-                                const dataUrl = canvas.toDataURL('image/jpeg', 0.6);
-                                resolve(dataUrl);
+                                  canvas.width = width;
+                                  canvas.height = height;
+                                  const ctx = canvas.getContext('2d');
+                                  ctx?.drawImage(img, 0, 0, width, height);
+                                  // Compress to JPEG, quality 0.6
+                                  const dataUrl = canvas.toDataURL('image/jpeg', 0.6);
+                                  resolve(dataUrl);
+                                };
+                                img.onerror = reject;
+                                img.src = reader.result as string;
                               };
-                              img.onerror = reject;
-                              img.src = reader.result as string;
-                            };
-                            reader.onerror = reject;
-                            reader.readAsDataURL(file);
+                              reader.onerror = reject;
+                              reader.readAsDataURL(file);
+                            });
                           });
-                        });
-                        const compressedUrls = await Promise.all(compressedPromises);
-                        setImagePreviews(prev => [...prev, ...compressedUrls]);
-                      }
-                    } else if (event?.target?.files) {
-                      if (typeof window !== "undefined") {
-                        alert(`${event.target.files.length} ${selectedTab.toLowerCase()} file(s) selected`);
+                          const compressedUrls = await Promise.all(compressedPromises);
+                          setImagePreviews(prev => [...prev, ...compressedUrls]);
+                        }
+                      } else {
+                        // Handle other file types (Video, Audio, Documents)
+                        if (typeof window !== "undefined") {
+                          const filePromises = files.map(file => {
+                            return new Promise<{name: string, data: string, type: string}>((resolve, reject) => {
+                              const reader = new FileReader();
+                              reader.onload = () => {
+                                resolve({
+                                  name: file.name,
+                                  data: reader.result as string,
+                                  type: file.type
+                                });
+                              };
+                              reader.onerror = reject;
+                              reader.readAsDataURL(file);
+                            });
+                          });
+                          
+                          const fileData = await Promise.all(filePromises);
+                          
+                          if (selectedTab === "Video") {
+                            setVideoFiles(prev => [...prev, ...fileData]);
+                          } else if (selectedTab === "Audio") {
+                            setAudioFiles(prev => [...prev, ...fileData]);
+                          } else if (selectedTab === "Documents") {
+                            setDocumentFiles(prev => [...prev, ...fileData]);
+                          }
+                        }
                       }
                     }
                   }}
@@ -590,6 +659,93 @@ const ReportForm: React.FC = () => {
                           title="Delete"
                         >
                           <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                            <path fillRule="evenodd" d="M6.293 6.293a1 1 0 011.414 0L10 8.586l2.293-2.293a1 1 0 111.414 1.414L11.414 10l2.293 2.293a1 1 0 01-1.414 1.414L10 11.414l-2.293 2.293a1 1 0 01-1.414-1.414L8.586 10 6.293 7.707a1 1 0 010-1.414z" clipRule="evenodd" />
+                          </svg>
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {/* Video File Previews */}
+                {selectedTab === "Video" && videoFiles.length > 0 && (
+                  <div className="flex flex-wrap gap-4 justify-center mt-6">
+                    {videoFiles.map((file, idx) => (
+                      <div key={idx} className="relative group bg-gray-100 p-4 rounded-lg border border-gray-300 shadow">
+                        <div className="flex items-center gap-2">
+                          <svg className="h-8 w-8 text-blue-500" fill="currentColor" viewBox="0 0 20 20">
+                            <path d="M2 6a2 2 0 012-2h6l2 2h6a2 2 0 012 2v6a2 2 0 01-2 2H4a2 2 0 01-2-2V6zM6 8a1 1 0 000 2h8a1 1 0 100-2H6z" />
+                          </svg>
+                          <div>
+                            <p className="text-sm font-medium text-gray-900">{file.name}</p>
+                            <p className="text-xs text-gray-500">Video</p>
+                          </div>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => setVideoFiles(prev => prev.filter((_, i) => i !== idx))}
+                          className="absolute top-2 right-2 bg-red-600 text-white rounded-full p-1 opacity-80 hover:opacity-100 transition-opacity"
+                          title="Delete"
+                        >
+                          <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+                            <path fillRule="evenodd" d="M6.293 6.293a1 1 0 011.414 0L10 8.586l2.293-2.293a1 1 0 111.414 1.414L11.414 10l2.293 2.293a1 1 0 01-1.414 1.414L10 11.414l-2.293 2.293a1 1 0 01-1.414-1.414L8.586 10 6.293 7.707a1 1 0 010-1.414z" clipRule="evenodd" />
+                          </svg>
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {/* Audio File Previews */}
+                {selectedTab === "Audio" && audioFiles.length > 0 && (
+                  <div className="flex flex-wrap gap-4 justify-center mt-6">
+                    {audioFiles.map((file, idx) => (
+                      <div key={idx} className="relative group bg-gray-100 p-4 rounded-lg border border-gray-300 shadow">
+                        <div className="flex items-center gap-2">
+                          <svg className="h-8 w-8 text-green-500" fill="currentColor" viewBox="0 0 20 20">
+                            <path fillRule="evenodd" d="M9.383 3.076A1 1 0 0110 4v12a1 1 0 01-1.617.773L6 15H4a2 2 0 01-2-2V7a2 2 0 012-2h2l2.383-1.923z" clipRule="evenodd" />
+                          </svg>
+                          <div>
+                            <p className="text-sm font-medium text-gray-900">{file.name}</p>
+                            <p className="text-xs text-gray-500">Audio</p>
+                          </div>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => setAudioFiles(prev => prev.filter((_, i) => i !== idx))}
+                          className="absolute top-2 right-2 bg-red-600 text-white rounded-full p-1 opacity-80 hover:opacity-100 transition-opacity"
+                          title="Delete"
+                        >
+                          <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+                            <path fillRule="evenodd" d="M6.293 6.293a1 1 0 011.414 0L10 8.586l2.293-2.293a1 1 0 111.414 1.414L11.414 10l2.293 2.293a1 1 0 01-1.414 1.414L10 11.414l-2.293 2.293a1 1 0 01-1.414-1.414L8.586 10 6.293 7.707a1 1 0 010-1.414z" clipRule="evenodd" />
+                          </svg>
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {/* Document File Previews */}
+                {selectedTab === "Documents" && documentFiles.length > 0 && (
+                  <div className="flex flex-wrap gap-4 justify-center mt-6">
+                    {documentFiles.map((file, idx) => (
+                      <div key={idx} className="relative group bg-gray-100 p-4 rounded-lg border border-gray-300 shadow">
+                        <div className="flex items-center gap-2">
+                          <svg className="h-8 w-8 text-red-500" fill="currentColor" viewBox="0 0 20 20">
+                            <path fillRule="evenodd" d="M4 4a2 2 0 012-2h4.586A2 2 0 0112 2.586L15.414 6A2 2 0 0116 7.414V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4zm2 6a1 1 0 011-1h6a1 1 0 110 2H7a1 1 0 01-1-1zm1 3a1 1 0 100 2h6a1 1 0 100-2H7z" clipRule="evenodd" />
+                          </svg>
+                          <div>
+                            <p className="text-sm font-medium text-gray-900">{file.name}</p>
+                            <p className="text-xs text-gray-500">Document</p>
+                          </div>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => setDocumentFiles(prev => prev.filter((_, i) => i !== idx))}
+                          className="absolute top-2 right-2 bg-red-600 text-white rounded-full p-1 opacity-80 hover:opacity-100 transition-opacity"
+                          title="Delete"
+                        >
+                          <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
                             <path fillRule="evenodd" d="M6.293 6.293a1 1 0 011.414 0L10 8.586l2.293-2.293a1 1 0 111.414 1.414L11.414 10l2.293 2.293a1 1 0 01-1.414 1.414L10 11.414l-2.293 2.293a1 1 0 01-1.414-1.414L8.586 10 6.293 7.707a1 1 0 010-1.414z" clipRule="evenodd" />
                           </svg>
                         </button>

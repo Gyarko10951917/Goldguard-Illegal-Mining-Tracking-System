@@ -1,5 +1,6 @@
 "use client";
 import { AlertTriangle, Briefcase, Calendar, Download, Edit, Eye, Image as ImageIcon, LayoutDashboard, LogOut, MapPin, Search, Settings, Trash2, Users } from 'lucide-react';
+import Image from 'next/image';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import React, { useState } from 'react';
@@ -876,15 +877,53 @@ Contact: info@goldguard.gov.gh
                 {/* Evidence Images Section */}
               {selectedCase.evidence && selectedCase.evidence.length > 0 && (
                 <div className="mt-6 pt-6 border-t border-gray-200">
-                  <label className="block text-sm font-medium text-[#6b5e36] mb-4">Evidence Images ({selectedCase.evidence.length})</label>
+                  <label className="block text-sm font-medium text-[#6b5e36] mb-4">Evidence Files ({selectedCase.evidence.length})</label>
                   <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
                     {selectedCase.evidence.map((evidence, index) => (
                       <div key={index} className="bg-gray-50 rounded-lg p-4">
                         <div className="aspect-w-16 aspect-h-12 mb-3">
                           {evidence.fileUrl ? (
-                            <div className="w-full h-32 bg-gray-200 rounded-lg flex items-center justify-center">
-                              <ImageIcon className="w-8 h-8 text-gray-400" />
-                              <span className="ml-2 text-sm text-gray-600">Image: {evidence.fileName}</span>
+                            <div className="relative w-full h-32 bg-gray-100 rounded-lg overflow-hidden">
+                              {/* Check if it's an image based on fileUrl or type */}
+                              {(evidence.fileUrl.startsWith('data:image/') || evidence.type === 'Photo') ? (
+                                <>
+                                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                                  <img 
+                                    src={evidence.fileUrl} 
+                                    alt={evidence.fileName}
+                                    className="w-full h-full object-cover cursor-pointer hover:opacity-75 transition-opacity"
+                                    onClick={() => {
+                                      // Open image in new tab for full view
+                                      window.open(evidence.fileUrl, '_blank');
+                                    }}
+                                    onError={(e) => {
+                                      // Fallback to placeholder if image fails to load
+                                      const target = e.target as HTMLImageElement;
+                                      target.style.display = 'none';
+                                      target.nextElementSibling?.classList.remove('hidden');
+                                    }}
+                                  />
+                                  <div className="hidden w-full h-full flex items-center justify-center bg-gray-200">
+                                    <ImageIcon className="w-8 h-8 text-gray-400" />
+                                    <span className="ml-2 text-sm text-gray-600">Failed to load image</span>
+                                  </div>
+                                </>
+                              ) : evidence.fileUrl.startsWith('data:video/') || evidence.type === 'Video' ? (
+                                <video 
+                                  src={evidence.fileUrl} 
+                                  controls
+                                  className="w-full h-full object-cover rounded-lg"
+                                  preload="metadata"
+                                />
+                              ) : (
+                                <div className="w-full h-full flex flex-col items-center justify-center bg-gray-200 cursor-pointer hover:bg-gray-300 transition-colors"
+                                     onClick={() => window.open(evidence.fileUrl, '_blank')}>
+                                  <Download className="w-8 h-8 text-gray-400 mb-2" />
+                                  <span className="text-sm text-gray-600 text-center px-2">
+                                    {evidence.type || 'Document'}
+                                  </span>
+                                </div>
+                              )}
                             </div>
                           ) : (
                             <div className="w-full h-32 bg-gray-200 rounded-lg flex items-center justify-center">

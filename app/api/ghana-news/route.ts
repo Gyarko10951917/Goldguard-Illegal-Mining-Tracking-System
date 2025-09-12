@@ -1,17 +1,18 @@
 import { NextRequest, NextResponse } from 'next/server';
 
-interface NewsApiResponse {
-  articles: Array<{
-    title: string;
-    description: string;
-    url: string;
-    urlToImage: string;
-    publishedAt: string;
-    source: {
-      name: string;
-    };
-    author?: string;
-  }>;
+interface NewsDataIOArticle {
+  title: string;
+  description: string;
+  content: string;
+  link: string;
+  image_url: string;
+  pubDate: string;
+  source_id: string;
+  creator: string[] | string;
+}
+
+interface NewsDataIOResponse {
+  results: NewsDataIOArticle[];
 }
 
 interface NewsItem {
@@ -89,24 +90,11 @@ const getMockGhanaNews = (): NewsItem[] => [
   }
 ];
 
-export async function GET(request: NextRequest) {
+export async function GET(_request: NextRequest) {
   try {
-    const newsApiKey = process.env.NEWS_API_KEY;
-    
-    // If no API key is available, return mock data
-    if (!newsApiKey) {
-      console.log('No NewsAPI key found, returning mock Ghana news data');
-      return NextResponse.json({
-        success: true,
-        articles: getMockGhanaNews(),
-        source: 'mock',
-        message: 'Using mock Ghana news data (no API key configured)'
-      });
-    }
-
-    // Fetch from NewsAPI
+    // Use newsdata.io API for Ghana mining/environment news
     const response = await fetch(
-      `https://newsapi.org/v2/everything?q=Ghana+mining+environment+galamsey&language=en&sortBy=publishedAt&pageSize=10&apiKey=${newsApiKey}`,
+      'https://newsdata.io/api/1/latest?apikey=pub_f2871dcf43ea48bda83c771b5eee40db&q=illegal%20mining&country=gh&language=en&category=environment&timezone=Africa/Cairo',
       {
         headers: {
           'User-Agent': 'GoldGuard/1.0'
@@ -115,52 +103,39 @@ export async function GET(request: NextRequest) {
     );
 
     if (!response.ok) {
-      throw new Error(`NewsAPI error: ${response.status} ${response.statusText}`);
+      throw new Error(`newsdata.io error: ${response.status} ${response.statusText}`);
     }
 
-    const data: NewsApiResponse = await response.json();
+    const apiData: NewsDataIOResponse = await response.json();
     
-    // Transform API data to our format
-    const newsItems: NewsItem[] = data.articles
-      .filter(article => article.title && article.description)
-      .slice(0, 6)
-      .map((article, index) => ({
-        id: `api_${Date.now()}_${index}`,
-        title: article.title,
-        author: article.author || article.source.name,
-        date: new Date(article.publishedAt).toISOString().split('T')[0],
-        imageSrc: article.urlToImage || "/assert/ghana-galamsey.jpg",
-        source: article.source.name,
-        summary: article.description,
-        url: article.url
-      }));
-
-    // If no Ghana-specific news found, return mock data
-    if (newsItems.length === 0) {
-      return NextResponse.json({
-        success: true,
-        articles: getMockGhanaNews(),
-        source: 'mock',
-        message: 'No Ghana news found via API, using mock data'
-      });
-    }
+    // newsdata.io returns results in apiData.results
+    const newsItems: NewsItem[] = (apiData.results || []).map((article: NewsDataIOArticle, idx: number) => ({
+      id: `${idx + 1}`,
+      title: article.title,
+      author: article.creator ? (Array.isArray(article.creator) ? article.creator.join(', ') : article.creator) : (article.source_id || 'Unknown'),
+      date: article.pubDate ? article.pubDate.split(' ')[0] : new Date().toISOString().split('T')[0],
+      imageSrc: article.image_url || '/assert/ghana-galamsey.jpg',
+      source: article.source_id || 'newsdata.io',
+      summary: article.description || article.content || '',
+      url: article.link
+    }));
 
     return NextResponse.json({
       success: true,
       articles: newsItems,
-      source: 'api',
-      message: `Fetched ${newsItems.length} articles from NewsAPI`
+      source: 'newsdata.io',
+      message: `Fetched ${newsItems.length} articles from newsdata.io`
     });
-
   } catch (error) {
-    console.error('Error fetching Ghana news:', error);
+    console.error('Error fetching Ghana news from newsdata.io:', error);
     
-    // Return mock data on error
+    // Fallback to mock data if API fails
+    console.log('Falling back to mock Ghana news data');
     return NextResponse.json({
       success: true,
       articles: getMockGhanaNews(),
       source: 'mock',
-      message: 'API error, using mock Ghana news data'
+      message: 'Using mock Ghana news data (API failed)'
     });
   }
 }

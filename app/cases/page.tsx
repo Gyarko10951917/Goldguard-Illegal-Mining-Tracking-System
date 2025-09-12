@@ -1,6 +1,5 @@
 "use client";
 import { AlertTriangle, Briefcase, Calendar, Download, Edit, Eye, Image as ImageIcon, LayoutDashboard, LogOut, MapPin, Search, Settings, Trash2, Users } from 'lucide-react';
-import Image from 'next/image';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import React, { useState } from 'react';

@@ -28,12 +28,20 @@ export async function fetchGhanaNews(): Promise<NewsItem[]> {
     
     const data = await response.json();
     
-    if (data.success && data.articles) {
-      console.log(`Successfully fetched ${data.articles.length} Ghana news items from newsdata.io`);
-      return data.articles;
+    // Check if the response has the expected structure
+    if (data && typeof data === 'object' && 'articles' in data) {
+      if (data.success) {
+        console.log(`Successfully fetched ${data.articles.length} Ghana news items from newsdata.io`);
+        return data.articles;
+      } else {
+        // API returned success: false, but still has articles structure
+        console.warn('API returned success: false, message:', data.message);
+        console.log('Returning empty array due to API failure');
+        return [];
+      }
     }
     
-    throw new Error('Invalid API response format');
+    throw new Error('Invalid API response format: missing articles property');
     
   } catch (error) {
     console.error('Error fetching from API route:', error);

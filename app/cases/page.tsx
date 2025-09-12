@@ -109,6 +109,8 @@ const CasePage: React.FC = () => {
   const [saveMessage, setSaveMessage] = useState<string>('');
   const [downloadMessage, setDownloadMessage] = useState<string>('');
   const [officers, setOfficers] = useState<string[]>([]);
+  const [extractingMetadata, setExtractingMetadata] = useState<boolean>(false);
+  const [metadataResults, setMetadataResults] = useState<{[key: string]: any}>({});
 
   // Helper functions
   const formatDate = (dateString?: string) => {
@@ -124,9 +126,52 @@ const CasePage: React.FC = () => {
     return 'Anonymous Reporter';
   };
 
+  // Metadata extraction function
+  const extractImageMetadata = async (imageData: string, fileName: string, caseId: string) => {
+    setExtractingMetadata(true);
+    try {
+      const response = await fetch('/api/metadata/extract', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          caseId,
+          imageData,
+          fileName
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const result = await response.json();
+      
+      if (result.success) {
+        // Store the metadata result
+        setMetadataResults(prev => ({
+          ...prev,
+          [`${caseId}-${fileName}`]: result.metadata
+        }));
+        
+        alert(`Metadata extracted successfully!\n\nFile: ${fileName}\nSize: ${result.metadata.analysis.estimatedFileSize}\nFormat: ${result.metadata.metadata.format}\nCompression: ${result.metadata.analysis.compressionInfo}`);
+      } else {
+        throw new Error(result.error || 'Failed to extract metadata');
+      }
+    } catch (error) {
+      console.error('Error extracting metadata:', error);
+      alert(`Failed to extract metadata: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    } finally {
+      setExtractingMetadata(false);
+    }
+  };
+
   const loadLocalStorageReports = () => {
     try {
       const savedReports = JSON.parse(localStorage.getItem('goldguard_reports') || '[]');
+      console.log('Debug - Loading reports from localStorage:', savedReports);
+      
       const localCases: Case[] = savedReports.map((report: {
         id?: string;
         type: string;
@@ -137,20 +182,33 @@ const CasePage: React.FC = () => {
         isAnonymous?: boolean;
         fullName?: string;
         submittedAt?: string;
-      }) => ({
-        id: report.id || `LOCAL-${Date.now()}`,
-        title: `${report.type} - ${report.region}`,
-        region: report.region,
-        type: report.type,
-        status: 'New',
-        priority: 'Medium',
-        assignedTo: 'Unassigned',
-        reportedDate: new Date(report.submittedAt || Date.now()).toLocaleDateString(),
-        lastUpdated: new Date(report.submittedAt || Date.now()).toLocaleDateString(),
-        description: report.description,
-        location: report.affectedArea || report.location?.address,
-        reporter: report.isAnonymous ? 'Anonymous' : report.fullName || 'Unknown'
-      }));
+        evidence?: Array<{
+          type: string;
+          description: string;
+          fileUrl: string;
+          fileName: string;
+        }>;
+      }) => {
+        console.log('Debug - Processing report with evidence:', report.evidence);
+        
+        return {
+          id: report.id || `LOCAL-${Date.now()}`,
+          title: `${report.type} - ${report.region}`,
+          region: report.region,
+          type: report.type,
+          status: 'New',
+          priority: 'Medium',
+          assignedTo: 'Unassigned',
+          reportedDate: new Date(report.submittedAt || Date.now()).toLocaleDateString(),
+          lastUpdated: new Date(report.submittedAt || Date.now()).toLocaleDateString(),
+          description: report.description,
+          location: report.affectedArea || report.location?.address,
+          reporter: report.isAnonymous ? 'Anonymous' : report.fullName || 'Unknown',
+          evidence: report.evidence || []
+        };
+      });
+      
+      console.log('Debug - Processed local cases:', localCases);
       
       // Use only localStorage reports (no mock data)
       setCases(localCases);
@@ -208,21 +266,27 @@ const CasePage: React.FC = () => {
 
             // Load localStorage reports as well
             const savedReports = JSON.parse(localStorage.getItem('goldguard_reports') || '[]');
-            const localCases: Case[] = savedReports.map((report: any) => ({
-              id: report.id || `LOCAL-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-              title: `${report.type} - ${report.region}`,
-              region: report.region,
-              type: report.type,
-              status: 'New',
-              priority: 'Medium',
-              assignedTo: 'Unassigned',
-              reportedDate: new Date(report.submittedAt || Date.now()).toLocaleDateString(),
-              lastUpdated: new Date(report.submittedAt || Date.now()).toLocaleDateString(),
-              description: report.description,
-              location: report.affectedArea || report.location?.address,
-              reporter: report.isAnonymous ? 'Anonymous' : report.fullName || 'Unknown',
-              evidence: report.evidence || []
-            }));
+            console.log('Debug - savedReports from localStorage:', savedReports);
+            
+            const localCases: Case[] = savedReports.map((report: any) => {
+              console.log('Debug - Processing savedReport evidence:', report.evidence);
+              
+              return {
+                id: report.id || `LOCAL-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+                title: `${report.type} - ${report.region}`,
+                region: report.region,
+                type: report.type,
+                status: 'New',
+                priority: 'Medium',
+                assignedTo: 'Unassigned',
+                reportedDate: new Date(report.submittedAt || Date.now()).toLocaleDateString(),
+                lastUpdated: new Date(report.submittedAt || Date.now()).toLocaleDateString(),
+                description: report.description,
+                location: report.affectedArea || report.location?.address,
+                reporter: report.isAnonymous ? 'Anonymous' : report.fullName || 'Unknown',
+                evidence: report.evidence || []
+              };
+            });
 
             // Combine only backend cases with localStorage reports (no mock data)
             setCases([...transformedCases, ...localCases]);
@@ -936,6 +1000,38 @@ Contact: info@goldguard.gov.gh
                           <p><span className="font-medium">Type:</span> {evidence.type}</p>
                           {evidence.description && (
                             <p><span className="font-medium">Description:</span> {evidence.description}</p>
+                          )}
+                          
+                          {/* Metadata extraction for images */}
+                          {(evidence.fileUrl?.startsWith('data:image/') || evidence.type === 'Photo') && (
+                            <div className="mt-2 pt-2 border-t border-gray-200">
+                              <button
+                                onClick={() => extractImageMetadata(evidence.fileUrl, evidence.fileName, selectedCase.id)}
+                                disabled={extractingMetadata}
+                                className="text-blue-600 hover:text-blue-800 text-xs font-medium disabled:text-gray-400 disabled:cursor-not-allowed flex items-center"
+                              >
+                                <Eye className="w-3 h-3 mr-1" />
+                                {extractingMetadata ? 'Extracting...' : 'Extract Metadata'}
+                              </button>
+                              
+                              {/* Show metadata if available */}
+                              {metadataResults[`${selectedCase.id}-${evidence.fileName}`] && (
+                                <div className="mt-1 p-2 bg-blue-50 rounded text-xs">
+                                  <p className="font-medium text-blue-800">Metadata:</p>
+                                  {(() => {
+                                    const metadata = metadataResults[`${selectedCase.id}-${evidence.fileName}`];
+                                    return (
+                                      <div className="space-y-1 text-blue-700">
+                                        <p>Size: {metadata.analysis?.estimatedFileSize}</p>
+                                        <p>Format: {metadata.metadata?.format}</p>
+                                        <p>Quality: {metadata.analysis?.compressionInfo}</p>
+                                        <p>Extracted: {new Date(metadata.extractedAt).toLocaleString()}</p>
+                                      </div>
+                                    );
+                                  })()}
+                                </div>
+                              )}
+                            </div>
                           )}
                         </div>
                       </div>

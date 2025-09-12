@@ -28,6 +28,7 @@ import { useAdminSession } from "../component/hooks/useAdminSession";
 import AdminNavBar from "../component/landingpage/AdminNavBar";
 import Footer from "../component/landingpage/footer";
 import { useTheme } from "../component/ThemeContext";
+import { checkLocalStorageReports } from "../utils/debugUtils";
 
 // Define the UnverifiedCase interface
 interface UnverifiedCase {
@@ -59,6 +60,7 @@ interface UnverifiedCase {
     };
     verified: boolean;
     caseId: string;
+    fileUrl?: string; // Add fileUrl to metadata
   }>;
 }
 
@@ -210,6 +212,11 @@ const ImageAnalysis = () => {
         .map((caseData, index) => {
           const reportDate = caseData.submittedAt ? new Date(caseData.submittedAt) : new Date();
           
+          // Extract image evidence with actual file URLs
+          const imageEvidence = caseData.evidence?.filter(e => e.type === 'Photo' || e.fileUrl?.startsWith('data:image/')) || [];
+          
+          console.log(`Debug - Case ${caseData.id}: Found ${imageEvidence.length} image evidence items:`, imageEvidence.map(e => ({ type: e.type, hasFileUrl: !!e.fileUrl, fileName: e.fileName })));
+          
           return {
             id: caseData.id || `CASE-${Date.now()}-${index}`,
             title: `${caseData.type} - ${caseData.region}`,
@@ -220,11 +227,11 @@ const ImageAnalysis = () => {
             reportedDate: reportDate.toISOString().split('T')[0],
             reporter: caseData.isAnonymous ? 'Anonymous Reporter' : (caseData.fullName || 'Community Member'),
             description: caseData.description || 'No description provided',
-            images: caseData.evidence?.filter(e => e.type === 'Photo').map(e => e.fileName) || [],
+            images: imageEvidence.map(e => e.fileUrl), // Use actual file URLs instead of just filenames
             hasLocation: !!(caseData.location?.coordinates || caseData.location?.address),
-            metadata: caseData.evidence?.filter(e => e.type === 'Photo').map(evidence => ({
+            metadata: imageEvidence.map(evidence => ({
               fileName: evidence.fileName,
-              fileSize: '2.1 MB', // Default value since not tracked
+              fileSize: evidence.fileUrl ? `${Math.ceil((evidence.fileUrl.length * 3) / 4 / 1024)} KB` : '2.1 MB', // Calculate from base64 size
               dimensions: '1920x1080', // Default value since not tracked
               dateTime: reportDate.toISOString().replace('T', ' ').substring(0, 19),
               location: caseData.location?.coordinates ? {
@@ -234,11 +241,12 @@ const ImageAnalysis = () => {
               } : undefined,
               camera: {
                 make: 'Unknown',
-                model: 'Unknown',
+                model: 'Unknown', 
                 settings: 'Unknown'
               },
               verified: false,
-              caseId: caseData.id || `CASE-${Date.now()}-${index}`
+              caseId: caseData.id || `CASE-${Date.now()}-${index}`,
+              fileUrl: evidence.fileUrl // Add the actual file URL to metadata
             }))
           };
         });
@@ -868,6 +876,14 @@ For questions or additional analysis, contact the system administrator.
                     <option value="Verified">Verified</option>
                     <option value="Rejected">Rejected</option>
                   </select>
+                  
+                  {/* Debug button for development */}
+                  <button
+                    onClick={() => checkLocalStorageReports()}
+                    className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm"
+                  >
+                    Debug Data
+                  </button>
                 </div>
               </div>
 
@@ -925,8 +941,30 @@ For questions or additional analysis, contact the system administrator.
                         <div className="flex space-x-2 overflow-x-auto">
                           {caseItem.metadata?.slice(0, 3).map((metadata, index) => (
                             <div key={index} className="flex-shrink-0">
-                              <div className="w-16 h-16 bg-gray-200 rounded border flex items-center justify-center">
-                                <ImageIcon className="w-6 h-6 text-gray-400" />
+                              <div className="w-16 h-16 bg-gray-200 rounded border flex items-center justify-center overflow-hidden">
+                                {metadata.fileUrl && metadata.fileUrl.startsWith('data:image/') ? (
+                                  /* eslint-disable-next-line @next/next/no-img-element */
+                                  <img 
+                                    src={metadata.fileUrl} 
+                                    alt={metadata.fileName}
+                                    className="w-full h-full object-cover cursor-pointer hover:opacity-75 transition-opacity"
+                                    onClick={() => {
+                                      // Open image in new tab for full view
+                                      window.open(metadata.fileUrl, '_blank');
+                                    }}
+                                    onError={(e) => {
+                                      // Fallback to placeholder if image fails to load
+                                      const target = e.target as HTMLImageElement;
+                                      target.style.display = 'none';
+                                      const parent = target.parentElement;
+                                      if (parent) {
+                                        parent.innerHTML = '<svg class="w-6 h-6 text-gray-400" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M4 3a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V5a2 2 0 00-2-2H4zm12 12H4l4-8 3 6 2-4 3 6z" clip-rule="evenodd"></path></svg>';
+                                      }
+                                    }}
+                                  />
+                                ) : (
+                                  <ImageIcon className="w-6 h-6 text-gray-400" />
+                                )}
                               </div>
                               <p className="text-xs text-gray-500 mt-1 text-center truncate w-16">{metadata.fileName}</p>
                             </div>
@@ -1044,9 +1082,38 @@ For questions or additional analysis, contact the system administrator.
                         <div key={index} className="bg-gray-50 rounded-lg p-4">
                           <div className="aspect-w-16 aspect-h-12 mb-3">
                             {metadata.fileUrl ? (
-                              <div className="w-full h-32 bg-gray-200 rounded-lg flex items-center justify-center">
-                                <ImageIcon className="w-8 h-8 text-gray-400" />
-                                <span className="ml-2 text-sm text-gray-600">Image: {metadata.fileName}</span>
+                              <div className="relative w-full h-32 bg-gray-100 rounded-lg overflow-hidden">
+                                {/* Check if it's an image based on fileUrl */}
+                                {metadata.fileUrl.startsWith('data:image/') ? (
+                                  <>
+                                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                                    <img 
+                                      src={metadata.fileUrl} 
+                                      alt={metadata.fileName}
+                                      className="w-full h-full object-cover cursor-pointer hover:opacity-75 transition-opacity"
+                                      onClick={() => {
+                                        // Open image in new tab for full view
+                                        window.open(metadata.fileUrl, '_blank');
+                                      }}
+                                      onError={(e) => {
+                                        // Fallback to placeholder if image fails to load
+                                        const target = e.target as HTMLImageElement;
+                                        target.style.display = 'none';
+                                        target.nextElementSibling?.classList.remove('hidden');
+                                      }}
+                                    />
+                                    <div className="hidden w-full h-full flex items-center justify-center bg-gray-200">
+                                      <ImageIcon className="w-8 h-8 text-gray-400" />
+                                      <span className="ml-2 text-sm text-gray-600">Failed to load image</span>
+                                    </div>
+                                  </>
+                                ) : (
+                                  <div className="w-full h-full flex items-center justify-center bg-gray-200 cursor-pointer hover:bg-gray-300 transition-colors"
+                                       onClick={() => window.open(metadata.fileUrl, '_blank')}>
+                                    <Download className="w-8 h-8 text-gray-400 mb-2" />
+                                    <span className="text-sm text-gray-600">Document</span>
+                                  </div>
+                                )}
                               </div>
                             ) : (
                               <div className="w-full h-32 bg-gray-200 rounded-lg flex items-center justify-center">
@@ -1057,6 +1124,7 @@ For questions or additional analysis, contact the system administrator.
                           </div>
                           <div className="space-y-1 text-xs text-gray-600">
                             <p><span className="font-medium">File:</span> {metadata.fileName}</p>
+                            <p><span className="font-medium">Size:</span> {metadata.fileSize}</p>
                             {metadata.location && (
                               <>
                                 <p><span className="font-medium">GPS:</span> {metadata.location.latitude.toFixed(6)}, {metadata.location.longitude.toFixed(6)}</p>
@@ -1064,6 +1132,44 @@ For questions or additional analysis, contact the system administrator.
                             )}
                             {metadata.camera && (
                               <p><span className="font-medium">Camera:</span> {metadata.camera.make} {metadata.camera.model}</p>
+                            )}
+                            
+                            {/* Metadata extraction button for images */}
+                            {metadata.fileUrl?.startsWith('data:image/') && (
+                              <div className="mt-2 pt-2 border-t border-gray-200">
+                                <button
+                                  onClick={async () => {
+                                    try {
+                                      const response = await fetch('/api/metadata/extract', {
+                                        method: 'POST',
+                                        headers: {
+                                          'Content-Type': 'application/json',
+                                        },
+                                        body: JSON.stringify({
+                                          caseId: selectedCase.id,
+                                          imageData: metadata.fileUrl,
+                                          fileName: metadata.fileName
+                                        })
+                                      });
+
+                                      const result = await response.json();
+                                      
+                                      if (result.success) {
+                                        alert(`Enhanced metadata extracted!\n\nActual Size: ${result.metadata.analysis.estimatedFileSize}\nFormat: ${result.metadata.metadata.format}\nCompression: ${result.metadata.analysis.compressionInfo}`);
+                                      } else {
+                                        alert('Failed to extract enhanced metadata');
+                                      }
+                                    } catch (error) {
+                                      console.error('Error:', error);
+                                      alert('Error extracting metadata');
+                                    }
+                                  }}
+                                  className="text-blue-600 hover:text-blue-800 text-xs font-medium flex items-center"
+                                >
+                                  <Eye className="w-3 h-3 mr-1" />
+                                  Extract Metadata
+                                </button>
+                              </div>
                             )}
                           </div>
                         </div>

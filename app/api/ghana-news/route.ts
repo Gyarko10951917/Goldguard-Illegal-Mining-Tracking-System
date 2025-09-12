@@ -26,70 +26,6 @@ interface NewsItem {
   summary?: string;
 }
 
-// Fallback Ghana news data
-const getMockGhanaNews = (): NewsItem[] => [
-  {
-    id: "1",
-    title: "Ghana Government Intensifies Anti-Galamsey Operations",
-    author: "Ghana Web",
-    date: new Date(Date.now() - Math.random() * 86400000).toISOString().split('T')[0],
-    imageSrc: "/assert/ghana-galamsey.jpg",
-    source: "Ghana Web",
-    summary: "Government launches comprehensive operation to combat illegal mining across all regions.",
-    url: "https://ghanaweb.com"
-  },
-  {
-    id: "2", 
-    title: "Traditional Leaders Unite Against Illegal Mining",
-    author: "Citi News",
-    date: new Date(Date.now() - Math.random() * 86400000).toISOString().split('T')[0],
-    imageSrc: "/assert/gatt.png",
-    source: "Citi News",
-    summary: "Chiefs across Ghana form alliance to protect community lands from mining activities.",
-    url: "https://citinewsroom.com"
-  },
-  {
-    id: "3",
-    title: "Environmental Restoration Program Shows Progress",
-    author: "Joy News",
-    date: new Date(Date.now() - Math.random() * 86400000).toISOString().split('T')[0],
-    imageSrc: "/assert/water.png",
-    source: "Joy News",
-    summary: "Multi-million dollar restoration initiative begins showing positive environmental results.",
-    url: "https://myjoyonline.com"
-  },
-  {
-    id: "4",
-    title: "Youth Employment in Legal Mining Increases",
-    author: "Modern Ghana",
-    date: new Date(Date.now() - Math.random() * 86400000).toISOString().split('T')[0],
-    imageSrc: "/assert/me.jpg",
-    source: "Modern Ghana",
-    summary: "Government programs successfully create jobs in legitimate mining sector.",
-    url: "https://modernghana.com"
-  },
-  {
-    id: "5",
-    title: "New Technology Helps Monitor Mining Activities",
-    author: "Graphic Online",
-    date: new Date(Date.now() - Math.random() * 86400000).toISOString().split('T')[0],
-    imageSrc: "/assert/image_gh.png",
-    source: "Graphic Online",
-    summary: "Advanced surveillance systems deployed to track illegal mining operations.",
-    url: "https://graphic.com.gh"
-  },
-  {
-    id: "6",
-    title: "Community Education Programs Expand Nationwide",
-    author: "Ghana Business",
-    date: new Date(Date.now() - Math.random() * 86400000).toISOString().split('T')[0],
-    imageSrc: "/assert/land.png",
-    source: "Ghana Business",
-    summary: "Educational initiatives help communities understand environmental protection.",
-    url: "#"
-  }
-];
-
 export async function GET(_request: NextRequest) {
   try {
     // Use newsdata.io API for Ghana mining/environment news
@@ -129,13 +65,13 @@ export async function GET(_request: NextRequest) {
   } catch (error) {
     console.error('Error fetching Ghana news from newsdata.io:', error);
     
-    // Fallback to mock data if API fails
-    console.log('Falling back to mock Ghana news data');
+    // Return error response instead of mock data
     return NextResponse.json({
-      success: true,
-      articles: getMockGhanaNews(),
-      source: 'mock',
-      message: 'Using mock Ghana news data (API failed)'
+      success: false,
+      articles: [],
+      source: 'error',
+      message: 'Failed to fetch news from newsdata.io API',
+      error: error instanceof Error ? error.message : String(error)
     });
   }
 }

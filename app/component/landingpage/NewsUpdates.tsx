@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import { useEffect, useState } from "react";
-import { fetchGhanaNews, getMockGhanaNews, NewsItem } from "../../services/ghanaNewsService";
+import { fetchGhanaNews, NewsItem } from "../../services/ghanaNewsService";
 
 // Remove the old interface since we're importing it from the service
 // Remove the getMockNewsItems function since we're using the service
@@ -28,9 +28,8 @@ const NewsUpdates: React.FC = () => {
 			console.log(`Loaded ${freshNews.length} news items from Ghana sources`);
 		} catch (error) {
 			console.error('Failed to load news:', error);
-			// Fallback to mock data if API fails
-			const fallbackNews = getMockGhanaNews();
-			setNewsItems(fallbackNews);
+			// Show empty state if API fails
+			setNewsItems([]);
 			setLastUpdated(new Date().toLocaleString());
 		} finally {
 			setIsLoading(false);

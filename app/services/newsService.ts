@@ -243,36 +243,7 @@ function determineSource(sourceName: string, url: string): string {
   return sourceName || 'Ghana News';
 }
 
-// Fallback static news for when APIs are unavailable
-const fallbackNews: NewsItem[] = [
-  {
-    id: "fallback-1",
-    title: "Ghana Intensifies Fight Against Illegal Mining Operations",
-    author: "Emmanuel Kwame",
-    date: "2025-08-10",
-    imageSrc: "/assert/ghana-galamsey.jpg",
-    source: "Joy News",
-    summary: "Government launches new operation to combat galamsey activities affecting water bodies and forest reserves.",
-  },
-  {
-    id: "fallback-2",
-    title: "Communities Rally Against Environmental Destruction from Mining",
-    author: "Akosua Mensah",
-    date: "2025-08-09",
-    imageSrc: "/assert/gatt.png", 
-    source: "TV3",
-    summary: "Local communities in mining areas organize protests against illegal mining operations destroying their environment.",
-  },
-  {
-    id: "fallback-3",
-    title: "New Mining Technology Promises Environmental Protection",
-    author: "Dr. Yaw Osei",
-    date: "2025-08-08",
-    imageSrc: "/assert/image_gh.png",
-    source: "Adom TV",
-    summary: "Revolutionary mining technology introduced to minimize environmental impact while maintaining productivity.",
-  },
-];
+// No fallback static news - we only want real API data
 
 // Main export function
 export async function fetchLatestNews(): Promise<NewsItem[]> {
@@ -310,12 +281,12 @@ export async function fetchLatestNews(): Promise<NewsItem[]> {
       return sortedNews;
     }
 
-    // Fallback to static news if APIs fail
-    console.log('APIs unavailable, using fallback news');
-    return fallbackNews;
+    // Return empty array if no APIs succeed - no fallback to mock data
+    console.log('All APIs unavailable, returning empty array');
+    return [];
 
   } catch (error) {
     console.error('Error in fetchLatestNews:', error);
-    return fallbackNews;
+    return [];
   }
 }

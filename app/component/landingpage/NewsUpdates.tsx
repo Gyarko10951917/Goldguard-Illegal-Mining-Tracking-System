@@ -12,6 +12,49 @@ const NewsUpdates: React.FC = () => {
 	const [isPaused, setIsPaused] = useState(false);
 	const [isLoading, setIsLoading] = useState(false);
 	const [lastUpdated, setLastUpdated] = useState<string>("");
+	const [imageErrors, setImageErrors] = useState<Set<string>>(new Set());
+	const [imageLoading, setImageLoading] = useState<Set<string>>(new Set());
+
+	// Function to get reliable image source with fallback
+	const getImageSrc = (item: NewsItem): string => {
+		if (imageErrors.has(item.id)) {
+			return '/assert/ghana-galamsey.jpg';
+		}
+		
+		// Check if the original image URL is from a problematic domain or malformed
+		if (!item.imageSrc || 
+			item.imageSrc.includes('ghanamma.com') || 
+			!item.imageSrc.startsWith('http')) {
+			return '/assert/ghana-galamsey.jpg';
+		}
+		
+		return item.imageSrc;
+	};
+
+	// Handle image loading errors
+	const handleImageError = (itemId: string) => {
+		console.log(`Image failed to load for item ${itemId}`);
+		setImageErrors(prev => new Set([...prev, itemId]));
+		setImageLoading(prev => {
+			const newSet = new Set(prev);
+			newSet.delete(itemId);
+			return newSet;
+		});
+	};
+
+	// Handle image loading start
+	const handleImageLoadStart = (itemId: string) => {
+		setImageLoading(prev => new Set([...prev, itemId]));
+	};
+
+	// Handle image loading success
+	const handleImageLoad = (itemId: string) => {
+		setImageLoading(prev => {
+			const newSet = new Set(prev);
+			newSet.delete(itemId);
+			return newSet;
+		});
+	};
 
 	// Load fresh news from Ghana news APIs and RSS feeds
 	const loadGhanaNews = async () => {
@@ -23,9 +66,15 @@ const NewsUpdates: React.FC = () => {
 			// Try to fetch real news from APIs
 			const freshNews = await fetchGhanaNews();
 			
-			setNewsItems(freshNews);
+			// Filter and clean news items with problematic images
+			const cleanedNews = freshNews.map(item => ({
+				...item,
+				imageSrc: cleanImageUrl(item.imageSrc)
+			}));
+			
+			setNewsItems(cleanedNews);
 			setLastUpdated(new Date().toLocaleString());
-			console.log(`Loaded ${freshNews.length} news items from Ghana sources`);
+			console.log(`Loaded ${cleanedNews.length} news items from Ghana sources`);
 		} catch (error) {
 			console.error('Failed to load news:', error);
 			// Show empty state if API fails
@@ -36,13 +85,63 @@ const NewsUpdates: React.FC = () => {
 		}
 	};
 
+	// Clean image URLs and provide fallbacks for problematic sources
+	const cleanImageUrl = (imageUrl: string): string => {
+		if (!imageUrl || !imageUrl.startsWith('http')) {
+			return '/assert/ghana-galamsey.jpg';
+		}
+		
+		// Check for known problematic domains
+		const problematicDomains = ['ghanamma.com'];
+		const isProblematicdomain = problematicDomains.some(domain => imageUrl.includes(domain));
+		
+		if (isProblematicdomain) {
+			return '/assert/ghana-galamsey.jpg';
+		}
+		
+		// Check for malformed URLs (double extensions, etc.)
+		if (imageUrl.includes('.webp.webp') || imageUrl.includes('..')) {
+			return '/assert/ghana-galamsey.jpg';
+		}
+		
+		return imageUrl;
+	};
+
 	useEffect(() => {
 		// Load initial news
-		loadGhanaNews();
+		const loadInitialNews = async () => {
+			setIsLoading(true);
+			
+			try {
+				console.log('Loading latest news from Ghana sources...');
+				
+				// Try to fetch real news from APIs
+				const freshNews = await fetchGhanaNews();
+				
+				// Filter and clean news items with problematic images
+				const cleanedNews = freshNews.map(item => ({
+					...item,
+					imageSrc: cleanImageUrl(item.imageSrc)
+				}));
+				
+				setNewsItems(cleanedNews);
+				setLastUpdated(new Date().toLocaleString());
+				console.log(`Loaded ${cleanedNews.length} news items from Ghana sources`);
+			} catch (error) {
+				console.error('Failed to load news:', error);
+				// Show empty state if API fails
+				setNewsItems([]);
+				setLastUpdated(new Date().toLocaleString());
+			} finally {
+				setIsLoading(false);
+			}
+		};
+
+		loadInitialNews();
 
 		// Auto-refresh every 30 minutes to get fresh content
-		const interval = setInterval(() => {
-			loadGhanaNews();
+		const interval = setInterval(async () => {
+			await loadGhanaNews();
 		}, 30 * 60 * 1000);
 		
 		return () => clearInterval(interval);
@@ -131,16 +230,23 @@ const NewsUpdates: React.FC = () => {
 							>
 								<div className="flex-1 flex flex-col justify-between">
 									<div className="relative">
+										{imageLoading.has(item.id) && (
+											<div className="absolute inset-0 bg-gray-200 rounded-xl mb-4 flex items-center justify-center">
+												<div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+											</div>
+										)}
 										<Image
-											src={item.imageSrc}
+											src={getImageSrc(item)}
 											alt={item.title}
 											width={320}
 											height={192}
 											className="object-cover w-full h-48 rounded-xl mb-4"
-											onError={(e) => {
-												const target = e.target as HTMLImageElement;
-												target.src = '/assert/ghana-galamsey.jpg'; // Fallback image
-											}}
+											priority={index < 4} // Prioritize first 4 images
+											placeholder="blur"
+											blurDataURL="data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAYEBQYFBAYGBQYHBwYIChAKCgkJChQODwwQFxQYGBcUFhYaHSUfGhsjHBYWICwgIyYnKSopGR8tMC0oMCUoKSj/2wBDAQcHBwoIChMKChMoGhYaKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCj/wAARCAABAAEDASIAAhEBAxEB/8QAFQABAQAAAAAAAAAAAAAAAAAAAAv/xAAhEAACAQMDBQAAAAAAAAAAAAABAgMABAUGIWGRkrHB0f/EABUBAQEAAAAAAAAAAAAAAAAAAAMF/8QAGhEAAgIDAAAAAAAAAAAAAAAAAAECEgMRkf/aAAwDAQACEQMRAD8AltJagyeH0AthI5xdrLcNM91BF5pX2HaH9bcfaSXWGaRmknyJckliyjqTzSlT54b6bk+h0R//2Q=="
+											onLoadingComplete={() => handleImageLoad(item.id)}
+											onError={() => handleImageError(item.id)}
+											onLoad={() => handleImageLoadStart(item.id)}
 										/>
 										<div 
 											className={`absolute top-2 left-2 px-3 py-1 rounded-full text-white text-xs font-semibold ${

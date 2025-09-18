@@ -1,8 +1,8 @@
 "use client";
 
 import Image from "next/image";
-import { useEffect, useState } from "react";
-import { fetchGhanaNews, NewsItem } from "../../services/ghanaNewsService";
+import { useCallback, useEffect, useState } from "react";
+import { fetchGhanaNews, forceRefreshNews, getCacheInfo, NewsItem } from "../../services/ghanaNewsService";
 
 // Remove the old interface since we're importing it from the service
 // Remove the getMockNewsItems function since we're using the service
@@ -14,6 +14,7 @@ const NewsUpdates: React.FC = () => {
 	const [lastUpdated, setLastUpdated] = useState<string>("");
 	const [imageErrors, setImageErrors] = useState<Set<string>>(new Set());
 	const [imageLoading, setImageLoading] = useState<Set<string>>(new Set());
+	const [autoRefreshEnabled] = useState(true);
 
 	// Function to get reliable image source with fallback
 	const getImageSrc = (item: NewsItem): string => {
@@ -56,15 +57,22 @@ const NewsUpdates: React.FC = () => {
 		});
 	};
 
-	// Load fresh news from Ghana news APIs and RSS feeds
-	const loadGhanaNews = async () => {
+	// Load fresh news from Ghana news APIs with persistent caching
+	const loadGhanaNews = useCallback(async (forceRefresh = false) => {
 		setIsLoading(true);
 		
 		try {
-			console.log('Loading latest news from Ghana sources...');
+			console.log('🔄 Loading Ghana news with caching support...');
 			
-			// Try to fetch real news from APIs
-			const freshNews = await fetchGhanaNews();
+			// Get cache info for status display
+			// Log cache info for debugging
+			const cacheInfo = getCacheInfo();
+			console.log('Cache info:', cacheInfo.hasCache ? 
+				`Cached: ${cacheInfo.lastUpdate} (${cacheInfo.articleCount} articles)` : 
+				'No cache available');
+			
+			// Fetch news with caching support
+			const freshNews = forceRefresh ? await forceRefreshNews() : await fetchGhanaNews();
 			
 			// Filter and clean news items with problematic images
 			const cleanedNews = freshNews.map(item => ({
@@ -74,16 +82,21 @@ const NewsUpdates: React.FC = () => {
 			
 			setNewsItems(cleanedNews);
 			setLastUpdated(new Date().toLocaleString());
-			console.log(`Loaded ${cleanedNews.length} news items from Ghana sources`);
+			
+			// Update cache status
+			// Log updated cache info
+			const updatedCacheInfo = getCacheInfo();
+			console.log('Updated cache info:', updatedCacheInfo.hasCache ?
+				`Updated: ${updatedCacheInfo.lastUpdate} (${updatedCacheInfo.articleCount} articles)` :
+				'Cache cleared');			console.log(`✅ Loaded ${cleanedNews.length} news items`);
 		} catch (error) {
-			console.error('Failed to load news:', error);
-			// Show empty state if API fails
-			setNewsItems([]);
+			console.error('❌ Failed to load news:', error);
+			// Don't clear existing news on error - keep what we have
 			setLastUpdated(new Date().toLocaleString());
 		} finally {
 			setIsLoading(false);
 		}
-	};
+	}, []); // No dependencies since function is self-contained
 
 	// Clean image URLs and provide fallbacks for problematic sources
 	const cleanImageUrl = (imageUrl: string): string => {
@@ -108,47 +121,27 @@ const NewsUpdates: React.FC = () => {
 	};
 
 	useEffect(() => {
-		// Load initial news
-		const loadInitialNews = async () => {
-			setIsLoading(true);
-			
-			try {
-				console.log('Loading latest news from Ghana sources...');
-				
-				// Try to fetch real news from APIs
-				const freshNews = await fetchGhanaNews();
-				
-				// Filter and clean news items with problematic images
-				const cleanedNews = freshNews.map(item => ({
-					...item,
-					imageSrc: cleanImageUrl(item.imageSrc)
-				}));
-				
-				setNewsItems(cleanedNews);
-				setLastUpdated(new Date().toLocaleString());
-				console.log(`Loaded ${cleanedNews.length} news items from Ghana sources`);
-			} catch (error) {
-				console.error('Failed to load news:', error);
-				// Show empty state if API fails
-				setNewsItems([]);
-				setLastUpdated(new Date().toLocaleString());
-			} finally {
-				setIsLoading(false);
-			}
+		// Initial load - use cache if available and recent
+		const initialLoad = async () => {
+			await loadGhanaNews(false);
 		};
+		
+		initialLoad();
 
-		loadInitialNews();
-
-		// Auto-refresh every 30 minutes to get fresh content
+		// Auto-refresh every 30 minutes if enabled
 		const interval = setInterval(async () => {
-			await loadGhanaNews();
+			if (autoRefreshEnabled) {
+				console.log('⏰ Auto-refresh checking for updates...');
+				await loadGhanaNews(false); // Use cache logic, don't force
+			}
 		}, 30 * 60 * 1000);
 		
 		return () => clearInterval(interval);
-	}, []);
+	}, [autoRefreshEnabled, loadGhanaNews]); // Include loadGhanaNews dependency
 
 	const refreshNews = async () => {
-		await loadGhanaNews();
+		console.log('🔄 Manual refresh triggered');
+		await loadGhanaNews(true); // Force refresh bypasses cache timing
 	};
 
 	// Duplicate the array to create seamless loop
